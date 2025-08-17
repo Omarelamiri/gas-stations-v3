@@ -4,7 +4,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/services/firebase/config';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import LoadingSpinner from './ui/LoadingSpinner';
 
 interface AuthContextProps {
   user: User | null;
