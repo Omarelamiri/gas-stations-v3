@@ -1,42 +1,51 @@
-'use client'
+// src/components/AuthProvider.tsx
+'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
-import type { User } from 'firebase/auth'
-import { onAuthStateChanged } from 'firebase/auth'
-import { auth } from '@/services/firebase/config'
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/services/firebase/config';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
-export type AuthContextValue = {
-  user: User | null
-  loading: boolean
-  error: Error | null
+interface AuthContextProps {
+  user: User | null;
+  loading: boolean;
 }
 
-const AuthContext = createContext<AuthContextValue>({ user: null, loading: true, error: null })
+const AuthContext = createContext<AuthContextProps>({
+  user: null,
+  loading: true,
+});
 
-export default function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
+export const useAuth = () => useContext(AuthContext);
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export default function AuthProvider({ children }: AuthProviderProps) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(
-      auth,
-      (u) => {
-        setUser(u)
-        setLoading(false)
-      },
-      (e) => {
-        setError(e as Error)
-        setLoading(false)
-      }
-    )
-    return () => unsub()
-  }, [])
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setLoading(false);
+    });
 
-  const value = useMemo(() => ({ user, loading, error }), [user, loading, error])
+    return () => unsubscribe();
+  }, []);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, loading }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
-
-export const useAuthContext = () => useContext(AuthContext)
