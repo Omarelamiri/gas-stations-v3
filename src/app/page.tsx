@@ -1,16 +1,27 @@
-import Link from 'next/link'
+// src/app/page.tsx
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { PageLoading } from '@/components/ui/LoadingSpinner';
 
 export default function HomePage() {
-  return (
-    <main className="container mx-auto grid min-h-[60vh] place-items-center p-6">
-      <div className="card max-w-xl text-center">
-        <h1 className="mb-2 text-2xl font-semibold">Gas Stations Manager</h1>
-        <p className="mb-6 text-gray-600">Next.js 14 + Firebase + Google Maps + Tailwind</p>
-        <div className="flex items-center justify-center gap-3">
-          <Link href="/login" className="btn btn-primary">Log in</Link>
-          <Link href="/signup" className="btn border border-gray-300">Sign up</Link>
-        </div>
-      </div>
-    </main>
-  )
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading) {
+      if (user) {
+        // User is authenticated, redirect to dashboard
+        router.replace('/dashboard');
+      } else {
+        // User is not authenticated, redirect to login
+        router.replace('/login');
+      }
+    }
+  }, [user, loading, router]);
+
+  // Show loading while checking authentication
+  return <PageLoading />;
 }

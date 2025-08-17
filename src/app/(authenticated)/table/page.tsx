@@ -1,11 +1,8 @@
+// src/app/(authenticated)/table/page.tsx
 'use client';
 
-import TableView from '@/components/dashboard/TableView';
+import { TableView } from '@/components/dashboard/TableView';
 
 export default function TablePage() {
-  return (
-    <div>
-      <TableView />
-    </div>
-  );
+  return <TableView />;
 }

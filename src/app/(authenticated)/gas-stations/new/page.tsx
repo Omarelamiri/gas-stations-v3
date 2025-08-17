@@ -1,7 +1,8 @@
+// src/app/gas-stations/new/page.tsx
 'use client';
 
-import StationForm from '@/components/gas-stations/StationForm';
+import { GasStationForm } from '@/components/gas-stations/StationForm';
 
 export default function NewGasStationPage() {
-  return <StationForm />;
+  return <GasStationForm mode="create" />;
 }
