@@ -1,160 +1,263 @@
-import { useState, useEffect } from 'react';
+// src/hooks/useGasStations.ts
+'use client';
+
+import { useState, useCallback } from 'react';
+import { useAuth } from './useAuth';
 import {
-  collection,
-  query,
-  onSnapshot,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  getDoc,
-  orderBy,
-  Timestamp
-} from 'firebase/firestore';
-import { db } from '@/services/firebase/config';
-import type { GasStation, CreateGasStationData, UpdateGasStationData } from '@/types';
+  createGasStation,
+  getGasStations,
+  getGasStation,
+  updateGasStation,
+  deleteGasStation,
+  searchGasStations,
+  getGasStationsByCity,
+  getNearbyGasStations,
+} from '@/services/gasStations';
+import {
+  GasStation,
+  CreateGasStationData,
+  UpdateGasStationData,
+  GasStationFilters,
+  PaginatedResponse,
+} from '@/types';
+import toast from 'react-hot-toast';
 
 interface UseGasStationsReturn {
+  // State
   gasStations: GasStation[];
-  loading: boolean;
+  currentGasStation: GasStation | null;
+  isLoading: boolean;
   error: string | null;
-  createGasStation: (data: CreateGasStationData) => Promise<string>;
-  updateGasStation: (id: string, data: UpdateGasStationData) => Promise<void>;
-  deleteGasStation: (id: string) => Promise<void>;
-  getGasStationById: (id: string) => Promise<GasStation | null>;
-  refreshData: () => void;
+  
+  // Actions
+  fetchGasStations: (filters?: GasStationFilters, page?: number, pageSize?: number) => Promise<PaginatedResponse<GasStation> | null>;
+  fetchGasStation: (id: string) => Promise<GasStation | null>;
+  createNewGasStation: (data: CreateGasStationData) => Promise<GasStation | null>;
+  updateExistingGasStation: (id: string, data: UpdateGasStationData) => Promise<GasStation | null>;
+  removeGasStation: (id: string) => Promise<boolean>;
+  searchStations: (searchTerm: string) => Promise<GasStation[]>;
+  fetchStationsByCity: (city: string) => Promise<GasStation[]>;
+  fetchNearbyStations: (lat: number, lng: number, radius?: number) => Promise<GasStation[]>;
+  clearError: () => void;
+  setCurrentGasStation: (station: GasStation | null) => void;
 }
 
 export const useGasStations = (): UseGasStationsReturn => {
+  const { user } = useAuth();
   const [gasStations, setGasStations] = useState<GasStation[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [currentGasStation, setCurrentGasStation] = useState<GasStation | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Real-time subscription to gas stations
-  useEffect(() => {
-    const gasStationsRef = collection(db, 'gasStations');
-    const q = query(gasStationsRef, orderBy('createdAt', 'desc'));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        try {
-          const stations: GasStation[] = [];
-          snapshot.forEach((doc) => {
-            const data = doc.data();
-            stations.push({
-              id: doc.id,
-              name: data.name,
-              address: data.address,
-              price: data.price,
-              coordinates: data.coordinates,
-              createdAt: data.createdAt?.toDate() || new Date(),
-              updatedAt: data.updatedAt?.toDate() || new Date(),
-            });
-          });
-          setGasStations(stations);
-          setError(null);
-        } catch (err) {
-          console.error('Error processing gas stations data:', err);
-          setError('Failed to load gas stations data');
-        } finally {
-          setLoading(false);
-        }
-      },
-      (err) => {
-        console.error('Error fetching gas stations:', err);
-        setError('Failed to fetch gas stations');
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
+  const clearError = useCallback(() => {
+    setError(null);
   }, []);
 
-  // Create a new gas station
-  const createGasStation = async (data: CreateGasStationData): Promise<string> => {
-    try {
-      const gasStationsRef = collection(db, 'gasStations');
-      const now = Timestamp.now();
-      
-      const docRef = await addDoc(gasStationsRef, {
-        ...data,
-        createdAt: now,
-        updatedAt: now,
-      });
+  const handleError = useCallback((error: unknown, defaultMessage: string) => {
+    const errorMessage = error instanceof Error ? error.message : defaultMessage;
+    setError(errorMessage);
+    toast.error(errorMessage);
+    console.error(error);
+  }, []);
 
-      return docRef.id;
-    } catch (err) {
-      console.error('Error creating gas station:', err);
-      throw new Error('Failed to create gas station');
+  // Fetch gas stations with filters and pagination
+  const fetchGasStations = useCallback(async (
+    filters: GasStationFilters = {},
+    page: number = 1,
+    pageSize: number = 10
+  ): Promise<PaginatedResponse<GasStation> | null> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await getGasStations(filters, page, pageSize);
+      setGasStations(result.data);
+      return result;
+    } catch (error) {
+      handleError(error, 'Failed to fetch gas stations');
+      return null;
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [handleError]);
+
+  // Fetch a single gas station
+  const fetchGasStation = useCallback(async (id: string): Promise<GasStation | null> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const gasStation = await getGasStation(id);
+      setCurrentGasStation(gasStation);
+      return gasStation;
+    } catch (error) {
+      handleError(error, 'Failed to fetch gas station');
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [handleError]);
+
+  // Create a new gas station
+  const createNewGasStation = useCallback(async (
+    data: CreateGasStationData
+  ): Promise<GasStation | null> => {
+    if (!user) {
+      toast.error('You must be logged in to create a gas station');
+      return null;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const newGasStation = await createGasStation(data, user.id);
+      
+      // Add to current list
+      setGasStations(prev => [newGasStation, ...prev]);
+      
+      toast.success('Gas station created successfully!');
+      return newGasStation;
+    } catch (error) {
+      handleError(error, 'Failed to create gas station');
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, handleError]);
 
   // Update an existing gas station
-  const updateGasStation = async (id: string, data: UpdateGasStationData): Promise<void> => {
+  const updateExistingGasStation = useCallback(async (
+    id: string,
+    data: UpdateGasStationData
+  ): Promise<GasStation | null> => {
+    setIsLoading(true);
+    setError(null);
+
     try {
-      const gasStationRef = doc(db, 'gasStations', id);
+      const updatedGasStation = await updateGasStation(id, data);
       
-      await updateDoc(gasStationRef, {
-        ...data,
-        updatedAt: Timestamp.now(),
-      });
-    } catch (err) {
-      console.error('Error updating gas station:', err);
-      throw new Error('Failed to update gas station');
-    }
-  };
-
-  // Delete a gas station
-  const deleteGasStation = async (id: string): Promise<void> => {
-    try {
-      const gasStationRef = doc(db, 'gasStations', id);
-      await deleteDoc(gasStationRef);
-    } catch (err) {
-      console.error('Error deleting gas station:', err);
-      throw new Error('Failed to delete gas station');
-    }
-  };
-
-  // Get a single gas station by ID
-  const getGasStationById = async (id: string): Promise<GasStation | null> => {
-    try {
-      const gasStationRef = doc(db, 'gasStations', id);
-      const docSnap = await getDoc(gasStationRef);
-
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          name: data.name,
-          address: data.address,
-          price: data.price,
-          coordinates: data.coordinates,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-        };
+      // Update in current list
+      setGasStations(prev => 
+        prev.map(station => 
+          station.id === id ? updatedGasStation : station
+        )
+      );
+      
+      // Update current gas station if it's the one being edited
+      if (currentGasStation?.id === id) {
+        setCurrentGasStation(updatedGasStation);
       }
+      
+      toast.success('Gas station updated successfully!');
+      return updatedGasStation;
+    } catch (error) {
+      handleError(error, 'Failed to update gas station');
       return null;
-    } catch (err) {
-      console.error('Error fetching gas station:', err);
-      throw new Error('Failed to fetch gas station');
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [currentGasStation, handleError]);
 
-  // Refresh data (force re-fetch)
-  const refreshData = () => {
-    setLoading(true);
-    // The real-time listener will automatically update the data
-  };
+  // Remove a gas station (soft delete)
+  const removeGasStation = useCallback(async (id: string): Promise<boolean> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await deleteGasStation(id);
+      
+      // Remove from current list
+      setGasStations(prev => prev.filter(station => station.id !== id));
+      
+      // Clear current gas station if it's the one being deleted
+      if (currentGasStation?.id === id) {
+        setCurrentGasStation(null);
+      }
+      
+      toast.success('Gas station deleted successfully!');
+      return true;
+    } catch (error) {
+      handleError(error, 'Failed to delete gas station');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentGasStation, handleError]);
+
+  // Search gas stations
+  const searchStations = useCallback(async (searchTerm: string): Promise<GasStation[]> => {
+    if (!searchTerm.trim()) {
+      return [];
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const results = await searchGasStations(searchTerm);
+      return results;
+    } catch (error) {
+      handleError(error, 'Failed to search gas stations');
+      return [];
+    } finally {
+      setIsLoading(false);
+    }
+  }, [handleError]);
+
+  // Fetch gas stations by city
+  const fetchStationsByCity = useCallback(async (city: string): Promise<GasStation[]> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const stations = await getGasStationsByCity(city);
+      return stations;
+    } catch (error) {
+      handleError(error, 'Failed to fetch gas stations by city');
+      return [];
+    } finally {
+      setIsLoading(false);
+    }
+  }, [handleError]);
+
+  // Fetch nearby gas stations
+  const fetchNearbyStations = useCallback(async (
+    lat: number,
+    lng: number,
+    radius: number = 10
+  ): Promise<GasStation[]> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const stations = await getNearbyGasStations(lat, lng, radius);
+      return stations;
+    } catch (error) {
+      handleError(error, 'Failed to fetch nearby gas stations');
+      return [];
+    } finally {
+      setIsLoading(false);
+    }
+  }, [handleError]);
 
   return {
+    // State
     gasStations,
-    loading,
+    currentGasStation,
+    isLoading,
     error,
-    createGasStation,
-    updateGasStation,
-    deleteGasStation,
-    getGasStationById,
-    refreshData,
+    
+    // Actions
+    fetchGasStations,
+    fetchGasStation,
+    createNewGasStation,
+    updateExistingGasStation,
+    removeGasStation,
+    searchStations,
+    fetchStationsByCity,
+    fetchNearbyStations,
+    clearError,
+    setCurrentGasStation,
   };
 };

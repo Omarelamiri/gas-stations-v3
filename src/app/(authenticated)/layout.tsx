@@ -1,27 +1,21 @@
 // src/app/(authenticated)/layout.tsx
-'use client';
+import Sidebar from "@/components/layout/Sidebar";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
-import { ReactNode } from 'react';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { ProtectedRoute } from '@/components/ProtectedRoute';
-
-interface AuthenticatedLayoutProps {
-  children: ReactNode;
-}
-
-export default function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
+export default function AuthenticatedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 flex">
-        {/* Sidebar */}
+      <div className="flex h-screen bg-gray-100">
         <Sidebar />
-        
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-hidden">
+          <div className="h-full overflow-auto p-6">
             {children}
-          </main>
-        </div>
+          </div>
+        </main>
       </div>
     </ProtectedRoute>
   );

@@ -1,32 +1,42 @@
 // src/components/ProtectedRoute.tsx
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from './AuthProvider';
-import {LoadingSpinner} from './ui/LoadingSpinner';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ProtectedRouteProps {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+const LoadingSpinner: React.FC = () => (
+  <div className="flex h-screen items-center justify-center">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+  </div>
+);
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+  const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!isLoading && !isAuthenticated) {
       router.push('/login');
     }
-  }, [user, loading, router]);
+  }, [isLoading, isAuthenticated, router]);
 
-  if (loading || !user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner />
-      </div>
-    );
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return <LoadingSpinner />;
   }
 
+  // If not authenticated, don't render anything (redirect will happen)
+  if (!isAuthenticated || !user) {
+    return <LoadingSpinner />;
+  }
+
+  // User is authenticated, render the protected content
   return <>{children}</>;
-}
+};
+
+export default ProtectedRoute;

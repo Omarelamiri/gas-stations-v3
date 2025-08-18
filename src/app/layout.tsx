@@ -2,14 +2,14 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { AuthProvider } from '@/components/AuthProvider';
+import { AuthProvider } from '@/hooks/useAuth';
+import { Toaster } from 'react-hot-toast';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Gas Stations Manager',
-  description: 'Manage and track gas stations with real-time pricing and locations',
-  keywords: ['gas stations', 'fuel prices', 'location tracking', 'management'],
+  description: 'Manage gas stations across Morocco',
 };
 
 export default function RootLayout({
@@ -22,6 +22,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           {children}
+          <Toaster position="top-right" />
         </AuthProvider>
       </body>
     </html>

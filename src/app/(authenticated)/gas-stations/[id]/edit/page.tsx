@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { GasStationForm } from '@/components/gas-stations/StationForm';
+import { GasStationForm } from '@/components/gas-stations/GasStationForm';
 import { useGasStations } from '@/hooks/useGasStations';
 import type { GasStation } from '@/types';
 
