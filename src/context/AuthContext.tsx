@@ -10,7 +10,7 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { auth, db } from '@/services/firebase/config'
 import { User, LoginCredentials, RegisterData, AuthState } from '@/types';
 import toast from 'react-hot-toast';
 

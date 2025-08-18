@@ -15,7 +15,7 @@ import {
   DocumentSnapshot,
   Timestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db } from '@/services/firebase/config'
 import { 
   GasStation, 
   CreateGasStationData, 
